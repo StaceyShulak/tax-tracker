@@ -3,8 +3,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import bodyParser from 'body-parser';
-import { google } from 'googleapis.js';
-
+import { google } from 'googleapis';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
