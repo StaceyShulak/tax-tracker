@@ -50,6 +50,10 @@ function initializeDatabase() {
   });
 }
 
+app.get('/', (req, res) => {
+  res.sendFile(join(__dirname, 'index.html'));
+});
+
 app.get('/api/issues', (req, res) => {
   db.all('SELECT * FROM issues ORDER BY updated DESC', (err, rows) => {
     if (err) {
