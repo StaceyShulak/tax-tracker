@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tax Issue Tracker - Shared</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f3ed; color: #2c2c2a; line-height: 1.6; }
+.container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+h1 { font-size: 28px; margin-bottom: 1.5rem; font-weight: 500; }
+.status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; }
+.status-indicator.synced { background: #3b6d11; }
+.status-indicator.syncing { background: #ba7517; }
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid #e8e6df; }
+.tab-btn { padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #888780; font-size: 14px; border-bottom: 2px solid transparent; transition: all 0.2s; font-weight: 500; }
+.tab-btn.active { color: #2c2c2a; border-bottom-color: #378add; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.form-group { margin-bottom: 1.5rem; }
+label { display: block; font-size: 13px; font-weight: 500; color: #888780; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
+input, select, textarea { width: 100%; padding: 0.75rem; border: 0.5px solid #e8e6df; border-radius: 6px; font-family: inherit; font-size: 14px; background: #fff; color: #2c2c2a; }
+textarea { resize: vertical; min-height: 80px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #378add; box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.1); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+button { padding: 0.75rem 1.5rem; background: #378add; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; transition: background 0.2s; }
+button:hover { background: #2d6ec4; }
+button.secondary { background: #f9f7f2; color: #2c2c2a; border: 0.5px solid #e8e6df; }
+button.secondary:hover { background: #f5f3ed; }
+.issues-table { width: 100%; border-collapse: collapse; }
+.issues-table th { text-align: left; font-size: 12px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: 0.5px; padding: 1rem; border-bottom: 0.5px solid #e8e6df; background: #f9f7f2; }
+.issues-table td { padding: 1rem; border-bottom: 0.5px solid #e8e6df; }
+.issues-table tr:hover { background: #f9f7f2; }
+.account-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.account-badge.personal { background: #e6f1fb; color: #185fa5; }
+.account-badge.corporate { background: #eaf3de; color: #3b6d11; }
+.status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.status-badge.open { background: #faece7; color: #993c1d; }
+.status-badge.in-progress { background: #faeeda; color: #854f0b; }
+.status-badge.resolved { background: #eaf3de; color: #3b6d11; }
+.status-badge.pending { background: #fcebeb; color: #a32d2d; }
+.year-label { font-size: 12px; color: #888780; font-weight: 500; }
+.filters { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.filter-group { display: flex; align-items: center; gap: 0.5rem; }
+.filter-group select { width: auto; min-width: 150px; }
+.filter-group label { margin: 0; color: #888780; font-size: 13px; white-space: nowrap; }
+.actions { display: flex; gap: 0.5rem; }
+.action-btn { padding: 0.4rem 0.8rem; font-size: 12px; white-space: nowrap; }
+.modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+.modal.active { display: flex; }
+.modal-content { background: #fff; border-radius: 8px; padding: 2rem; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+.modal-header { font-size: 18px; font-weight: 500; margin-bottom: 1.5rem; }
+.modal-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: #888780; }
+.empty-state { text-align: center; padding: 3rem 1rem; color: #888780; }
+.empty-state p { margin: 0.5rem 0; }
+.form-actions { display: flex; gap: 1rem; margin-top: 2rem; }
+.form-actions button { flex: 1; }
+.sync-status { display: flex; align-items: center; gap: 0.5rem; font-size: 12px; color: #888780; margin-bottom: 1.5rem; }
+.notes-history { background: #f9f7f2; border-radius: 6px; padding: 1rem; margin-top: 1rem; max-height: 150px; overflow-y: auto; }
+.note-item { font-size: 12px; margin-bottom: 0.75rem; color: #2c2c2a; }
+.note-date { color: #888780; font-size: 11px; }
+@media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .issues-table { font-size: 13px; } .issues-table td, .issues-table th { padding: 0.75rem; } .filters { flex-direction: column; } .filter-group select { width: 100%; } }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Tax Issue Tracker <span class="sync-status"><span class="status-indicator synced"></span>Ready to sync</span></h1>
+
+<div class="tabs">
+<button class="tab-btn active" data-tab="issues">Issues</button>
+<button class="tab-btn" data-tab="add">Add Issue</button>
+</div>
+
+<div id="issues" class="tab-content active">
+<div class="filters">
+<div class="filter-group">
+<label>Account:</label>
+<select id="filterAccount">
+<option value="">All accounts</option>
+<option value="personal">Stacey Personal</option>
+<option value="corporate">E+E Consulting (Corporate)</option>
+</select>
+</div>
+<div class="filter-group">
+<label>Status:</label>
+<select id="filterStatus">
+<option value="">All statuses</option>
+<option value="open">Open</option>
+<option value="in-progress">In Progress</option>
+<option value="resolved">Resolved</option>
+<option value="pending">Pending Response</option>
+</select>
+</div>
+<div class="filter-group">
+<label>Tax Year:</label>
+<select id="filterYear">
+<option value="">All years</option>
+</select>
+</div>
+<button class="secondary action-btn" onclick="exportPDF()">Export to PDF</button>
+<button class="secondary action-btn" onclick="refreshData()" style="margin-left: auto;">Refresh</button>
+</div>
+
+<table class="issues-table" id="issuesTable">
+<thead>
+<tr>
+<th>Issue</th>
+<th>Account</th>
+<th>Tax Year</th>
+<th>Status</th>
+<th>Updated</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="issuesBody"></tbody>
+</table>
+<div id="emptyState" class="empty-state" style="display:none;">
+<p>No issues yet</p>
+<p>Add your first issue to get started</p>
+</div>
+</div>
+
+<div id="add" class="tab-content">
+<div style="max-width: 600px;">
+<h2 style="font-size: 20px; margin-bottom: 1.5rem;">Create new issue</h2>
+<form id="issueForm">
+<div class="form-group">
+<label>Issue title or question</label>
+<input type="text" id="title" required placeholder="e.g., Deduction for home office">
+</div>
+
+<div class="form-row">
+<div class="form-group">
+<label>Account</label>
+<select id="account" required>
+<option value="">Select account</option>
+<option value="personal">Stacey Personal (Jan-Dec)</option>
+<option value="corporate">E+E Consulting (Jul-Jun)</option>
+</select>
+</div>
+<div class="form-group">
+<label>Tax year</label>
+<select id="taxYear" required>
+<option value="">Select year</option>
+<option value="2026">2026</option>
+<option value="2025">2025</option>
+<option value="2024">2024</option>
+<option value="2023">2023</option>
+</select>
+</div>
+</div>
+
+<div class="form-group">
+<label>Status</label>
+<select id="status" required>
+<option value="open">Open</option>
+<option value="in-progress">In Progress</option>
+<option value="pending">Pending Response</option>
+<option value="resolved">Resolved</option>
+</select>
+</div>
+
+<div class="form-group">
+<label>Description or question</label>
+<textarea id="description" placeholder="Add details here..."></textarea>
+</div>
+
+<div class="form-group">
+<label>Assigned to</label>
+<select id="assignedTo" required>
+<option value="me">You</option>
+<option value="accountant">Accountant</option>
+<option value="both">Both</option>
+</select>
+</div>
+
+<div class="form-actions">
+<button type="submit" class="action-btn">Create Issue</button>
+<button type="reset" class="secondary action-btn">Clear</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+
+<div id="editModal" class="modal">
+<div class="modal-content">
+<button class="modal-close" onclick="closeModal()">&times;</button>
+<div class="modal-header">Update issue</div>
+<form id="editForm">
+<input type="hidden" id="editId">
+<div class="form-group">
+<label>Title</label>
+<input type="text" id="editTitle" required>
+</div>
+<div class="form-group">
+<label>Description</label>
+<textarea id="editDescription"></textarea>
+</div>
+<div class="form-group">
+<label>Status</label>
+<select id="editStatus" required>
+<option value="open">Open</option>
+<option value="in-progress">In Progress</option>
+<option value="pending">Pending Response</option>
+<option value="resolved">Resolved</option>
+</select>
+</div>
+<div class="form-group">
+<label>Add note (who's updating and what changed)</label>
+<textarea id="editNote" placeholder="e.g., Accountant: Found the receipt, ready to file"></textarea>
+</div>
+<div id="notesHistory" class="notes-history" style="display:none;"></div>
+<div class="form-actions">
+<button type="submit" class="action-btn">Save Update</button>
+<button type="button" class="secondary action-btn" onclick="closeModal()">Cancel</button>
+</div>
+</form>
+</div>
+</div>
+
+<script>
+const API_URL = '';
+let allIssues = [];
+let syncInterval;
+
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+
+function getFormattedDate() {
+  const now = new Date();
+  return now.toLocaleDateString('en-CA');
+}
+
+async function fetchIssues() {
+  try {
+    const response = await fetch(`${API_URL}/api/issues`);
+    allIssues = await response.json();
+    populateYearFilter();
+    renderIssues();
+  } catch (err) {
+    console.error('Error fetching issues:', err);
+  }
+}
+
+function populateYearFilter() {
+  const years = new Set();
+  allIssues.forEach(issue => years.add(issue.taxYear));
+  const yearSelect = document.getElementById('filterYear');
+  const currentOptions = Array.from(yearSelect.options).map(o => o.value).slice(1);
+  const yearArray = Array.from(years).sort((a, b) => b - a);
+  yearArray.forEach(year => {
+    if (!currentOptions.includes(year)) {
+      const option = document.createElement('option');
+      option.value = year;
+      option.textContent = year;
+      yearSelect.appendChild(option);
+    }
+  });
+}
+
+function renderIssues() {
+  const accountFilter = document.getElementById('filterAccount').value;
+  const statusFilter = document.getElementById('filterStatus').value;
+  const yearFilter = document.getElementById('filterYear').value;
+
+  let filtered = allIssues;
+  if (accountFilter) filtered = filtered.filter(i => i.account === accountFilter);
+  if (statusFilter) filtered = filtered.filter(i => i.status === statusFilter);
+  if (yearFilter) filtered = filtered.filter(i => i.taxYear === yearFilter);
+
+  const tbody = document.getElementById('issuesBody');
+  const emptyState = document.getElementById('emptyState');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  tbody.innerHTML = filtered.map(issue => {
+    const notesHtml = issue.notes && issue.notes.length > 0
+      ? `<div style="font-size: 12px; margin-top: 0.5rem; color: #b4b2a9;">Latest: ${escapeHtml(issue.notes[0].text.substring(0, 50))}</div>`
+      : '';
+
+    return `
+      <tr>
+      <td>
+        <div style="font-weight: 500; margin-bottom: 0.25rem;">${escapeHtml(issue.title)}</div>
+        <div style="font-size: 13px; color: #888780;">${escapeHtml(issue.description ? issue.description.substring(0, 60) : '(no description)')}${issue.description && issue.description.length > 60 ? '...' : ''}</div>
+        ${notesHtml}
+      </td>
+      <td><span class="account-badge ${issue.account}">${issue.account === 'personal' ? 'Stacey Personal' : 'E+E Corp'}</span></td>
+      <td><span class="year-label">${issue.taxYear}</span></td>
+      <td><span class="status-badge ${issue.status}">${issue.status.replace('-', ' ')}</span></td>
+      <td style="font-size: 12px; color: #888780;">${issue.updated}</td>
+      <td>
+        <div class="actions">
+        <button class="secondary action-btn" onclick="editIssue('${issue.id}')">Edit</button>
+        <button class="secondary action-btn" onclick="deleteIssue('${issue.id}')" style="background: #fcebeb; color: #a32d2d;">Delete</button>
+        </div>
+      </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function editIssue(id) {
+  const issue = allIssues.find(i => i.id === id);
+  if (!issue) return;
+
+  document.getElementById('editId').value = id;
+  document.getElementById('editTitle').value = issue.title;
+  document.getElementById('editDescription').value = issue.description || '';
+  document.getElementById('editStatus').value = issue.status;
+
+  const notesHistory = document.getElementById('notesHistory');
+  if (issue.notes && issue.notes.length > 0) {
+    notesHistory.innerHTML = issue.notes.map(note =>
+      `<div class="note-item">${escapeHtml(note.text)}<br><span class="note-date">${note.date}</span></div>`
+    ).join('');
+    notesHistory.style.display = 'block';
+  } else {
+    notesHistory.style.display = 'none';
+  }
+
+  document.getElementById('editModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('active');
+}
+
+async function deleteIssue(id) {
+  if (confirm('Delete this issue?')) {
+    try {
+      await fetch(`${API_URL}/api/issues/${id}`, { method: 'DELETE' });
+      await fetchIssues();
+    } catch (err) {
+      console.error('Error deleting issue:', err);
+      alert('Failed to delete issue');
+    }
+  }
+}
+
+document.getElementById('editForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('editId').value;
+  const title = document.getElementById('editTitle').value;
+  const description = document.getElementById('editDescription').value;
+  const status = document.getElementById('editStatus').value;
+  const note = document.getElementById('editNote').value;
+  const updated = getFormattedDate();
+
+  try {
+    await fetch(`${API_URL}/api/issues/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, status, description, updated })
+    });
+
+    if (note) {
+      await fetch(`${API_URL}/api/issues/${id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId: generateId(), text: note, date: updated })
+      });
+    }
+
+    await fetchIssues();
+    closeModal();
+  } catch (err) {
+    console.error('Error updating issue:', err);
+    alert('Failed to update issue');
+  }
+});
+
+document.getElementById('issueForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const newIssue = {
+    id: generateId(),
+    title: document.getElementById('title').value,
+    account: document.getElementById('account').value,
+    taxYear: document.getElementById('taxYear').value,
+    status: document.getElementById('status').value,
+    description: document.getElementById('description').value,
+    assignedTo: document.getElementById('assignedTo').value,
+    created: getFormattedDate(),
+    updated: getFormattedDate()
+  };
+
+  try {
+    const response = await fetch(`${API_URL}/api/issues`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newIssue)
+    });
+
+    if (response.ok) {
+      await fetchIssues();
+      document.getElementById('issueForm').reset();
+      document.querySelector('[data-tab="issues"]').click();
+    }
+  } catch (err) {
+    console.error('Error creating issue:', err);
+    alert('Failed to create issue');
+  }
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+document.getElementById('filterAccount').addEventListener('change', renderIssues);
+document.getElementById('filterStatus').addEventListener('change', renderIssues);
+document.getElementById('filterYear').addEventListener('change', renderIssues);
+
+function exportPDF() {
+  const element = document.querySelector('.issues-table');
+  if (!element || !element.querySelector('tbody').children.length) {
+    alert('No issues to export');
+    return;
+  }
+
+  const opt = {
+    margin: 10,
+    filename: 'tax-issues-' + new Date().toISOString().split('T')[0] + '.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { orientation: 'landscape', unit: 'mm', format: 'a4' }
+  };
+
+  html2pdf().set(opt).from(element).save();
+}
+
+async function refreshData() {
+  await fetchIssues();
+}
+
+fetchIssues();
+syncInterval = setInterval(fetchIssues, 5000);
+</script>
+</body>
+</html>
