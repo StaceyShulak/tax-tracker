@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS issues (
   description TEXT,
   assignedTo TEXT,
   created TEXT,
-  updated TEXT
+  updated TEXT,
+  archived INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS notes (
@@ -19,4 +20,5 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated);
+CREATE INDEX IF NOT EXISTS idx_issues_archived ON issues(archived);
 CREATE INDEX IF NOT EXISTS idx_notes_issueId ON notes(issueId);
