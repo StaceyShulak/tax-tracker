@@ -5,4 +5,4 @@ pages_build_output_dir = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "tax-tracker"
-database_id = "your-database-id-here"
+database_id = "141d46ec-c65b-4e0c-a29b-d49cb5658376"
