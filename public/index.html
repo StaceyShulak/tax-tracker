@@ -57,6 +57,7 @@ button.secondary:hover { background: #f5f3ed; }
 .note-item { font-size: 12px; margin-bottom: 0.75rem; color: #2c2c2a; }
 .note-date { color: #888780; font-size: 11px; }
 .notes-preview { font-size: 12px; color: #888780; margin-top: 0.5rem; }
+.issue-description { white-space: pre-wrap; word-break: break-word; }
 @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .issues-table { font-size: 13px; } .issues-table td, .issues-table th { padding: 0.75rem; } .filters { flex-direction: column; } .filter-group select { width: 100%; } }
 </style>
 </head>
@@ -113,6 +114,7 @@ button.secondary:hover { background: #f5f3ed; }
 <th>Account</th>
 <th>Tax Year</th>
 <th>Status</th>
+<th>Description</th>
 <th>Notes</th>
 <th>Updated</th>
 <th>Actions</th>
@@ -245,7 +247,7 @@ function populateYearSelects() {
   const years = generateYears();
   const taxYearSelect = document.getElementById('taxYear');
   const filterYearSelect = document.getElementById('filterYear');
-  
+
   taxYearSelect.innerHTML = '<option value="">Select year</option>';
   years.forEach(year => {
     const option = document.createElement('option');
@@ -304,21 +306,21 @@ function renderIssues() {
 
   emptyState.style.display = 'none';
   tbody.innerHTML = filtered.map(issue => {
-    const notesText = issue.notes && issue.notes.length > 0
-      ? issue.notes.map(n => `${n.text} (${n.date})`).join('\n')
-      : 'No notes';
+    const notesHtml = issue.notes && issue.notes.length > 0
+      ? issue.notes.map(n => `<div style="margin-bottom: 0.5rem;"><strong>${escapeHtml(n.text)}</strong><br><span style="color: #aaa; font-size: 11px;">${n.date}</span></div>`).join('')
+      : '<em style="color: #aaa;">No notes</em>';
 
     return `
       <tr>
       <td>
-        <div style="font-weight: 500; margin-bottom: 0.25rem;">${escapeHtml(issue.title)}</div>
-        <div style="font-size: 13px; color: #888780;">${escapeHtml(issue.description ? issue.description.substring(0, 60) : '(no description)')}${issue.description && issue.description.length > 60 ? '...' : ''}</div>
+        <div style="font-weight: 500;">${escapeHtml(issue.title)}</div>
       </td>
       <td><span class="account-badge ${issue.account}">${issue.account === 'personal' ? 'Stacey Personal' : 'E+E Corp'}</span></td>
       <td><span class="year-label">${issue.taxYear}</span></td>
       <td><span class="status-badge ${issue.status}">${issue.status.replace('-', ' ')}</span></td>
-      <td style="font-size: 12px; color: #888780; max-width: 200px; white-space: pre-wrap; word-break: break-word;">${escapeHtml(notesText).substring(0, 100)}${notesText.length > 100 ? '...' : ''}</td>
-      <td style="font-size: 12px; color: #888780;">${issue.updated}</td>
+      <td style="font-size: 12px; color: #2c2c2a;" class="issue-description">${escapeHtml(issue.description ? issue.description : '(no description)')}</td>
+      <td style="font-size: 12px; color: #2c2c2a;">${notesHtml}</td>
+      <td style="font-size: 12px; color: #888780; white-space: nowrap;">${issue.updated}</td>
       <td>
         <div class="actions">
         <button class="secondary action-btn" onclick="editIssue('${issue.id}')">Edit</button>
@@ -457,21 +459,73 @@ document.getElementById('filterYear').addEventListener('change', renderIssues);
 document.getElementById('filterArchived').addEventListener('change', fetchIssues);
 
 function exportPDF() {
-  const element = document.querySelector('.issues-table');
-  if (!element || !element.querySelector('tbody').children.length) {
+  const filtered = getFilteredIssues();
+  if (filtered.length === 0) {
     alert('No issues to export');
     return;
   }
+
+  let htmlContent = `
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <h1>Tax Issue Tracker Report</h1>
+    <p><strong>Generated:</strong> ${new Date().toLocaleDateString('en-CA')}</p>
+    <hr>
+  `;
+
+  filtered.forEach((issue, idx) => {
+    const accountLabel = issue.account === 'personal' ? 'Stacey Personal' : 'E+E Consulting (Corporate)';
+    htmlContent += `
+      <div style="margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #ddd; padding: 15px;">
+      <h2 style="margin-top: 0; color: #333;">${idx + 1}. ${issue.title}</h2>
+      <p><strong>Account:</strong> ${accountLabel} | <strong>Tax Year:</strong> ${issue.taxYear} | <strong>Status:</strong> ${issue.status}</p>
+      <p><strong>Updated:</strong> ${issue.updated}</p>
+      <div style="background: #f9f7f2; padding: 10px; border-radius: 4px; margin: 10px 0;">
+        <strong>Description:</strong><br>
+        <span style="white-space: pre-wrap;">${issue.description ? issue.description : '(no description)'}</span>
+      </div>
+    `;
+
+    if (issue.notes && issue.notes.length > 0) {
+      htmlContent += `
+        <div style="background: #f0f0f0; padding: 10px; border-radius: 4px; margin: 10px 0;">
+        <strong>Notes:</strong><br>
+      `;
+      issue.notes.forEach(note => {
+        htmlContent += `<div style="margin-bottom: 8px; padding: 5px; border-left: 2px solid #378add; padding-left: 10px;">
+          <div>${note.text}</div>
+          <span style="color: #888; font-size: 12px;">${note.date}</span>
+        </div>`;
+      });
+      htmlContent += `</div>`;
+    }
+
+    htmlContent += `</div>`;
+  });
+
+  htmlContent += `</div>`;
 
   const opt = {
     margin: 10,
     filename: 'tax-issues-' + new Date().toISOString().split('T')[0] + '.pdf',
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { orientation: 'landscape', unit: 'mm', format: 'a4' }
+    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
   };
 
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(htmlContent).save();
+}
+
+function getFilteredIssues() {
+  const accountFilter = document.getElementById('filterAccount').value;
+  const statusFilter = document.getElementById('filterStatus').value;
+  const yearFilter = document.getElementById('filterYear').value;
+
+  let filtered = allIssues;
+  if (accountFilter) filtered = filtered.filter(i => i.account === accountFilter);
+  if (statusFilter) filtered = filtered.filter(i => i.status === statusFilter);
+  if (yearFilter) filtered = filtered.filter(i => i.taxYear === yearFilter);
+
+  return filtered;
 }
 
 async function refreshData() {
