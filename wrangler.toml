@@ -1,10 +1,6 @@
 name = "tax-tracker"
 type = "javascript"
-main = "src/index.js"
-compatibility_date = "2024-01-01"
-
-[env.production]
-name = "tax-tracker-prod"
+pages_build_output_dir = "public"
 
 [[d1_databases]]
 binding = "DB"
